@@ -1,0 +1,72 @@
+services:
+  flask:
+    container_name: flask
+    restart: always
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file:
+      - .env
+    ports:
+      - 8000:8000
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    networks:
+      web:
+        ipv4_address: 172.23.0.4
+
+  celery_worker:
+    container_name: celery_worker
+    restart: always
+    build:
+      context: .
+    env_file:
+      - .env
+    command: celery -A app.celery_app worker -l info
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+      - flask
+    networks:
+      web:
+        ipv4_address: 172.23.0.5
+
+
+  redis:
+    container_name: redis
+    image: redis:7.0.7-bullseye
+    ports:
+      - 6379:6379
+    networks:
+      web:
+        ipv4_address: 172.23.0.2
+
+  db:
+    image: postgres:14.6-alpine
+    build:
+      context: .
+      dockerfile: ./containers/postgresql/Dockerfile
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - 5432:5432
+    networks:
+      web:
+        ipv4_address: 172.23.0.3
+
+volumes:
+  postgres_data:
+networks:
+  web:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.23.0.0/16
